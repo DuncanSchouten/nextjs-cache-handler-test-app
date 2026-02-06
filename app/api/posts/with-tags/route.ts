@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPostsWithTags } from '../../../../lib/blogService';
 import { unstable_cacheTag as cacheTag } from 'next/cache'
+'use cache'
 
 export async function GET(request: NextRequest) {
-  const startTime = Date.now();
   'use cache'
   cacheTag('api-posts')
+  const startTime = Date.now();
 
   try {
     console.log('[API] /api/posts/with-tags - Using blogService...');
