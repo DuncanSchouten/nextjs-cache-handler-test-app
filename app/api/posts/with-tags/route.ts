@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPostsWithTags } from '../../../../lib/blogService';
 import { unstable_cacheTag as cacheTag } from 'next/cache'
-'use cache'
 
 export async function GET(request: NextRequest) {
   'use cache'
