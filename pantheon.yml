@@ -1,38 +1,18 @@
-# Pantheon Configuration for Next.js Cache Handler Test App
-#
-# This file configures the Pantheon platform for the Next.js test application.
-# See: https://docs.pantheon.io/pantheon-yml
-
 api_version: 1
 
-# Node.js runtime
-build_step: true
-nodejs:
-  version: 20
+# Build the Next.js app during deployment
+build_providers:
+  - type: nodejs
+    version: '20'
+    install_dep: npm ci
+    run_scripts: npm run build
 
-# Environment-specific configuration
-environments:
-  # Development environment
-  dev:
-    # Use file-based cache handler (no GCS)
-    protected_web_paths:
-      - /.next/cache/
+# Web server configuration
+web_config:
+  framework: custom
+  start_command: npm run start
+  port: 3000
 
-  # Test environment
-  test:
-    # Use GCS cache handler
-    # Requires CACHE_BUCKET environment variable
-
-  # Live (production) environment
-  live:
-    # Use GCS cache handler
-    # Requires CACHE_BUCKET environment variable
-    # Requires OUTBOUND_PROXY_ENDPOINT for edge cache (optional)
-
-# Quicksilver scripts (optional - for future automation)
-# workflows:
-#   deploy:
-#     after:
-#       - type: webphp
-#         description: Clear Next.js cache after deployment
-#         script: private/scripts/clear-cache.php
+# Required environment variables:
+# - CACHE_BUCKET: GCS bucket for cache storage (required for production)
+# - OUTBOUND_PROXY_ENDPOINT: Edge cache proxy endpoint (optional)
