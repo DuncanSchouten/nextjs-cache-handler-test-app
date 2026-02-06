@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       cache_strategy: 'tags-revalidate-5m',
       duration_ms: duration,
       fetched_at: new Date().toISOString(),
-      cache_tags: ['api-posts', 'external-data'],
+      tags: ['api-posts', 'external-data'],
       description: 'Cached for 5 minutes with tags for on-demand invalidation'
     });
 
