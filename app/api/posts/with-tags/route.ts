@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPostsWithTags } from '../../../../lib/blogService';
-import { unstable_cacheTag as cacheTag } from 'next/cache'
 
 // Mark route as dynamic to ensure fresh execution
 // (Fetch cache will still work, but route won't be pre-rendered)
@@ -10,8 +9,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
-  'use cache'
-  cacheTag('api-posts')
   const startTime = Date.now();
 
   try {
@@ -22,27 +19,13 @@ export async function GET(request: NextRequest) {
 
     console.log(`[API] /api/posts/with-tags - Completed in ${duration}ms`);
 
-    // IMPORTANT: Return actual fetch timestamp, not route execution time
-    // The posts data comes from fetch() which may be cached
-    // We need to return a timestamp that reflects the actual fetch time
-    // to allow E2E tests to detect cache hits/misses
-    //
-    // Since we can't directly access fetch cache metadata from the route,
-    // we use the data itself as a cache key. If data is identical, fetch was cached.
-    // We include a fetch_cache_key to help tests verify cache behavior.
-    const dataHash = JSON.stringify(posts.slice(0, 1)); // Use first post as cache indicator
-
     return NextResponse.json({
       data: posts,
       cache_strategy: 'tags-revalidate-5m',
       duration_ms: duration,
       fetched_at: new Date().toISOString(),
       tags: ['api-posts', 'external-data'],
-      description: 'Cached for 5 minutes with tags for on-demand invalidation',
-      _meta: {
-        data_hash: dataHash.substring(0, 50), // Partial hash for cache verification
-        route_execution_time: new Date().toISOString(),
-      }
+      description: 'Cached for 5 minutes with tags for on-demand invalidation'
     }, {
       headers: {
         // Prevent CDN from caching API responses
