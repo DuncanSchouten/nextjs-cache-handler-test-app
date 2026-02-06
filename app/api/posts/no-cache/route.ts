@@ -21,6 +21,12 @@ export async function GET(request: NextRequest) {
       duration_ms: duration,
       fetched_at: new Date().toISOString(),
       description: 'Always fetches fresh data, never cached'
+    }, {
+      headers: {
+        'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
 
   } catch (error) {
@@ -33,7 +39,14 @@ export async function GET(request: NextRequest) {
         duration_ms: Date.now() - startTime,
         fetched_at: new Date().toISOString()
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
     );
   }
 }
