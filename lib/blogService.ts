@@ -137,11 +137,12 @@ export async function getBlogPost(slug: string): Promise<BlogPost | null> {
 
 /**
  * Fetch posts with no-store cache strategy
+ * This bypasses all caching and fetches fresh data on every request
  */
 export async function fetchPostsWithNoCache(): Promise<ApiPost[]> {
   console.log('[BlogService] Fetching posts with no-store cache...');
 
-  const posts = await getPosts();
+  const posts = await getPosts({ cache: 'no-store' });
   const limitedPosts = posts.slice(0, 3);
 
   console.log(`[BlogService] Fetched ${limitedPosts.length} posts with no-store`);
@@ -150,11 +151,12 @@ export async function fetchPostsWithNoCache(): Promise<ApiPost[]> {
 
 /**
  * Fetch posts with force-cache strategy
+ * This caches the response indefinitely until manually revalidated
  */
 export async function fetchPostsWithForceCache(): Promise<ApiPost[]> {
   console.log('[BlogService] Fetching posts with force-cache...');
 
-  const posts = await getPosts();
+  const posts = await getPosts({ cache: 'force-cache' });
   const limitedPosts = posts.slice(0, 3);
 
   console.log(`[BlogService] Fetched ${limitedPosts.length} posts with force-cache`);
@@ -163,11 +165,12 @@ export async function fetchPostsWithForceCache(): Promise<ApiPost[]> {
 
 /**
  * Fetch posts with revalidate strategy
+ * This caches the response for 60 seconds before revalidating
  */
 export async function fetchPostsWithRevalidate(): Promise<ApiPost[]> {
   console.log('[BlogService] Fetching posts with 60s revalidation...');
 
-  const posts = await getPosts();
+  const posts = await getPosts({ revalidate: 60 });
   const limitedPosts = posts.slice(0, 3);
 
   console.log(`[BlogService] Fetched ${limitedPosts.length} posts with 60s revalidation`);
@@ -176,11 +179,15 @@ export async function fetchPostsWithRevalidate(): Promise<ApiPost[]> {
 
 /**
  * Fetch posts with tagged cache strategy
+ * This allows on-demand revalidation via revalidateTag('api-posts')
  */
 export async function fetchPostsWithTags(): Promise<ApiPost[]> {
   console.log('[BlogService] Fetching posts with cache tags...');
 
-  const posts = await getPosts();
+  const posts = await getPosts({
+    tags: ['api-posts', 'external-data'],
+    revalidate: 300, // 5 minutes
+  });
   const limitedPosts = posts.slice(0, 3);
 
   console.log(`[BlogService] Fetched ${limitedPosts.length} posts with tagged cache`);

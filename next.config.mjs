@@ -5,6 +5,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Required for Pantheon deployment
+  output: 'standalone',
+
   // logging: {
   //   fetches: {
   //     fullUrl: true,

@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       cache_stats: {
         size: stats.size,
-        entries: stats.entries
+        entries: stats.entries,
+        keys: stats.keys,
       },
       info: {
         handler_type: 'GCS/File-based Cache Handler',
@@ -53,9 +54,9 @@ export async function DELETE(request: NextRequest) {
     console.log(`[API] Cache cleared - removed ${sizeBefore} entries`);
 
     return NextResponse.json({
-      message: 'Cache cleared successfully',
+      message: `Cleared ${sizeBefore} cache entries`,
       timestamp: new Date().toISOString(),
-      cleared_entries: sizeBefore
+      cleared_count: sizeBefore,
     }, {
       headers: {
         'Cache-Control': 'private, no-cache, no-store, must-revalidate',
