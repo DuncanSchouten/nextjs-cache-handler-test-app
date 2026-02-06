@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig = {
   // Required for Pantheon deployment
   output: 'standalone',
+  cacheComponents: true,
 
   // logging: {
   //   fetches: {
