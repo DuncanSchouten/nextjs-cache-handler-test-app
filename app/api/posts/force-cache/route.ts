@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPostsWithForceCache } from '../../../../lib/blogService';
 
+// Mark route as dynamic and disable CDN caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
@@ -18,6 +22,12 @@ export async function GET(request: NextRequest) {
       duration_ms: duration,
       fetched_at: new Date().toISOString(),
       description: 'Uses cache indefinitely, only fetches if no cache exists'
+    }, {
+      headers: {
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
     });
 
   } catch (error) {
