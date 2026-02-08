@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPostsWithNoCache } from '../../../../lib/blogService';
 
-// Force dynamic rendering - never cache this route
-export const dynamic = 'force-dynamic';
+// Next.js 16: No 'use cache' means no caching (SSR behavior)
+// Replaced legacy: export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();

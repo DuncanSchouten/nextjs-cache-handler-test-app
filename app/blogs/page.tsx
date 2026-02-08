@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getBlogPosts } from '../../lib/blogService';
+import { getBlogPostsWithMetadata } from '../../lib/blogService';
 
 export interface BlogPost {
   id: number;
@@ -19,15 +19,14 @@ export interface BlogPost {
   tags: string[];
 }
 
-// Enable ISR with 5 minute revalidation
-export const revalidate = 300;
+// Next.js 16: Caching is handled in blogService with 'use cache'
+// Replaced legacy: export const revalidate = 300;
 
 export default async function BlogsPage() {
-  // Next.js will automatically cache this with ISR
-  const blogs: BlogPost[] = await getBlogPosts();
+  const { posts: blogs, cachedAt } = await getBlogPostsWithMetadata();
 
-  // Capture the generation time - this changes when ISR refreshes
-  const generatedAt = new Date();
+  // Next.js 16: Use cached timestamp from the cache component
+  const generatedAt = new Date(cachedAt);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900">

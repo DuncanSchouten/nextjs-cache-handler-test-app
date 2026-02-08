@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPostsWithForceCache } from '../../../../lib/blogService';
 
-// Mark route as dynamic and disable CDN caching
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Next.js 16: No legacy route segment configs needed
+// Cache behavior is handled via fetch() options in blogService
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();

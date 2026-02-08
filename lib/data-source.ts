@@ -93,7 +93,10 @@ export async function getPost(id: number): Promise<MockPost | null> {
   }
 
   console.log(`[DataSource] Fetching post ${id} from JSONPlaceholder`);
-  const response = await fetch(`https://jsonplaceholder.typicode.com/posts/${id}`);
+  // Next.js 16: Add cache options to prevent prerender issues
+  const response = await fetch(`https://jsonplaceholder.typicode.com/posts/${id}`, {
+    next: { revalidate: 300 }, // Cache for 5 minutes
+  });
 
   if (!response.ok) {
     return null;
@@ -116,7 +119,10 @@ export async function getUsers(): Promise<MockUser[]> {
   }
 
   console.log('[DataSource] Fetching users from JSONPlaceholder');
-  const response = await fetch('https://jsonplaceholder.typicode.com/users');
+  // Next.js 16: Add cache options to prevent prerender issues
+  const response = await fetch('https://jsonplaceholder.typicode.com/users', {
+    next: { revalidate: 3600 }, // Cache for 1 hour
+  });
 
   if (!response.ok) {
     throw new Error(`Failed to fetch users: ${response.statusText}`);
@@ -135,7 +141,10 @@ export async function getUser(id: number): Promise<MockUser | null> {
   }
 
   console.log(`[DataSource] Fetching user ${id} from JSONPlaceholder`);
-  const response = await fetch(`https://jsonplaceholder.typicode.com/users/${id}`);
+  // Next.js 16: Add cache options to prevent prerender issues
+  const response = await fetch(`https://jsonplaceholder.typicode.com/users/${id}`, {
+    next: { revalidate: 3600 }, // Cache for 1 hour
+  });
 
   if (!response.ok) {
     return null;

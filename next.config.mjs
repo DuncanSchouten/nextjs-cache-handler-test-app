@@ -7,8 +7,25 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig = {
   // Required for Pantheon deployment
   output: 'standalone',
-  experimental: {
-    useCache: true,
+
+  // Next.js 16 Cache Components configuration
+  // Replaces experimental.dynamicIO and legacy route segment configs
+  cacheComponents: true,
+
+  // Custom cache life profiles for testing 'use cache' directive
+  cacheLife: {
+    // Short-lived cache for testing (30s stale, 60s revalidate, 5min expire)
+    short: {
+      stale: 30,
+      revalidate: 60,
+      expire: 300,
+    },
+    // Blog-style cache (1min stale, 5min revalidate, 1hr expire)
+    blog: {
+      stale: 60,
+      revalidate: 300,
+      expire: 3600,
+    },
   },
 
   // logging: {
