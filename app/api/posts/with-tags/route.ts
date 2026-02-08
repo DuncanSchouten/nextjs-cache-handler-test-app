@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchPostsWithTags } from '../../../../lib/blogService';
+import { fetchPostsWithTagsAndMetadata } from '../../../../lib/blogService';
 
-// Next.js 16: No legacy route segment configs needed
-// Tag-based caching is handled via fetch() options in blogService
+// Next.js 16: Cache behavior handled via 'use cache' with cacheTag() in blogService
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -10,16 +9,17 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[API] /api/posts/with-tags - Using blogService...');
 
-    const posts = await fetchPostsWithTags();
+    // Use the metadata version which captures timestamp inside the cached function
+    const { posts, cachedAt } = await fetchPostsWithTagsAndMetadata();
     const duration = Date.now() - startTime;
 
-    console.log(`[API] /api/posts/with-tags - Completed in ${duration}ms`);
+    console.log(`[API] /api/posts/with-tags - Completed in ${duration}ms, cached at ${cachedAt}`);
 
     return NextResponse.json({
       data: posts,
       cache_strategy: 'tags-revalidate-5m',
       duration_ms: duration,
-      fetched_at: new Date().toISOString(),
+      fetched_at: cachedAt, // Use timestamp from cached function
       tags: ['api-posts', 'external-data'],
       description: 'Cached for 5 minutes with tags for on-demand invalidation'
     }, {
