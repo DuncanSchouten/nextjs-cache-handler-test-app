@@ -1,5 +1,5 @@
 import type { BlogPost } from '../app/blogs/page';
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { getPosts, getUsers } from './data-source';
 import type { MockPost } from './mock-data';
 
@@ -173,6 +173,12 @@ export async function getBlogPostWithMetadata(slug: string): Promise<BlogPostRes
 
 // ==================== API ROUTE CACHE TESTING FUNCTIONS ====================
 
+// Result type for cache testing functions that includes timing metadata
+export interface CachedPostsResult {
+  posts: ApiPost[];
+  cachedAt: string;
+}
+
 /**
  * Fetch posts with no-store cache strategy
  * This bypasses all caching and fetches fresh data on every request
@@ -185,6 +191,21 @@ export async function fetchPostsWithNoCache(): Promise<ApiPost[]> {
 
   console.log(`[BlogService] Fetched ${limitedPosts.length} posts with no-store`);
   return limitedPosts;
+}
+
+/**
+ * Fetch posts with no-store cache strategy (with metadata)
+ * Returns timestamp for cache validation testing
+ */
+export async function fetchPostsWithNoCacheAndMetadata(): Promise<CachedPostsResult> {
+  console.log('[BlogService] Fetching posts with no-store cache...');
+
+  const posts = await getPosts({ cache: 'no-store' });
+  const limitedPosts = posts.slice(0, 3);
+  const cachedAt = new Date().toISOString();
+
+  console.log(`[BlogService] Fetched ${limitedPosts.length} posts with no-store at ${cachedAt}`);
+  return { posts: limitedPosts, cachedAt };
 }
 
 /**
@@ -202,6 +223,25 @@ export async function fetchPostsWithForceCache(): Promise<ApiPost[]> {
 }
 
 /**
+ * Fetch posts with force-cache strategy (with metadata)
+ * Uses 'use cache' directive to capture when data was actually cached
+ * The timestamp will remain stable across requests when cache is hit
+ */
+export async function fetchPostsWithForceCacheAndMetadata(): Promise<CachedPostsResult> {
+  'use cache';
+  cacheLife('hours'); // Long cache duration for force-cache semantics
+
+  console.log('[BlogService] Fetching posts with force-cache (use cache)...');
+
+  const posts = await getPosts({ cache: 'force-cache' });
+  const limitedPosts = posts.slice(0, 3);
+  const cachedAt = new Date().toISOString();
+
+  console.log(`[BlogService] Cached ${limitedPosts.length} posts at ${cachedAt}`);
+  return { posts: limitedPosts, cachedAt };
+}
+
+/**
  * Fetch posts with revalidate strategy
  * This caches the response for 60 seconds before revalidating
  */
@@ -213,6 +253,24 @@ export async function fetchPostsWithRevalidate(): Promise<ApiPost[]> {
 
   console.log(`[BlogService] Fetched ${limitedPosts.length} posts with 60s revalidation`);
   return limitedPosts;
+}
+
+/**
+ * Fetch posts with revalidate strategy (with metadata)
+ * Uses 'use cache' with 'short' profile (60s) for testing
+ */
+export async function fetchPostsWithRevalidateAndMetadata(): Promise<CachedPostsResult> {
+  'use cache';
+  cacheLife('short'); // 60s revalidation from config
+
+  console.log('[BlogService] Fetching posts with 60s revalidation (use cache)...');
+
+  const posts = await getPosts({ revalidate: 60 });
+  const limitedPosts = posts.slice(0, 3);
+  const cachedAt = new Date().toISOString();
+
+  console.log(`[BlogService] Cached ${limitedPosts.length} posts at ${cachedAt}`);
+  return { posts: limitedPosts, cachedAt };
 }
 
 /**
@@ -230,4 +288,26 @@ export async function fetchPostsWithTags(): Promise<ApiPost[]> {
 
   console.log(`[BlogService] Fetched ${limitedPosts.length} posts with tagged cache`);
   return limitedPosts;
+}
+
+/**
+ * Fetch posts with tagged cache strategy (with metadata)
+ * Uses 'use cache' with cacheTag() for on-demand revalidation testing
+ */
+export async function fetchPostsWithTagsAndMetadata(): Promise<CachedPostsResult> {
+  'use cache';
+  cacheLife('blog'); // 5min revalidation from config
+  cacheTag('api-posts'); // Tag for on-demand revalidation
+
+  console.log('[BlogService] Fetching posts with cache tags (use cache)...');
+
+  const posts = await getPosts({
+    tags: ['api-posts', 'external-data'],
+    revalidate: 300,
+  });
+  const limitedPosts = posts.slice(0, 3);
+  const cachedAt = new Date().toISOString();
+
+  console.log(`[BlogService] Cached ${limitedPosts.length} posts with tags at ${cachedAt}`);
+  return { posts: limitedPosts, cachedAt };
 }

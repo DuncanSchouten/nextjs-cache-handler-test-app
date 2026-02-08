@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchPostsWithForceCache } from '../../../../lib/blogService';
+import { fetchPostsWithForceCacheAndMetadata } from '../../../../lib/blogService';
 
 // Next.js 16: No legacy route segment configs needed
-// Cache behavior is handled via fetch() options in blogService
+// Cache behavior is handled via 'use cache' in blogService
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -10,16 +10,17 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[API] /api/posts/force-cache - Using blogService...');
 
-    const posts = await fetchPostsWithForceCache();
+    // Use the metadata version which captures timestamp inside the cached function
+    const { posts, cachedAt } = await fetchPostsWithForceCacheAndMetadata();
     const duration = Date.now() - startTime;
 
-    console.log(`[API] /api/posts/force-cache - Completed in ${duration}ms`);
+    console.log(`[API] /api/posts/force-cache - Completed in ${duration}ms, cached at ${cachedAt}`);
 
     return NextResponse.json({
       data: posts,
       cache_strategy: 'force-cache',
       duration_ms: duration,
-      fetched_at: new Date().toISOString(),
+      fetched_at: cachedAt, // Use timestamp from cached function
       description: 'Uses cache indefinitely, only fetches if no cache exists'
     }, {
       headers: {
