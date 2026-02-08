@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 
-// Force dynamic - revalidation should never be cached
-export const dynamic = 'force-dynamic';
+// Next.js 16: No 'use cache' means dynamic execution
+// Replaced legacy: export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +19,9 @@ export async function POST(request: NextRequest) {
     console.log(`[API] /api/revalidate - Revalidating cache tag: ${tag}`);
 
     // Revalidate the specified cache tag
-    revalidateTag(tag);
+    // Next.js 16: revalidateTag requires a second argument (cache profile)
+    // 'max' uses stale-while-revalidate semantics
+    revalidateTag(tag, 'max');
 
     return NextResponse.json({
       message: `Cache tag '${tag}' has been revalidated`,
@@ -68,7 +70,8 @@ export async function GET(request: NextRequest) {
   console.log(`[API] /api/revalidate - Revalidating cache tag: ${tag}`);
 
   try {
-    revalidateTag(tag);
+    // Next.js 16: revalidateTag requires a second argument (cache profile)
+    revalidateTag(tag, 'max');
 
     return NextResponse.json({
       message: `Cache tag '${tag}' has been revalidated`,

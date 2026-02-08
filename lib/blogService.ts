@@ -1,4 +1,5 @@
 import type { BlogPost } from '../app/blogs/page';
+import { cacheLife } from 'next/cache';
 import { getPosts, getUsers } from './data-source';
 import type { MockPost } from './mock-data';
 
@@ -83,12 +84,32 @@ function transformApiData(posts: ApiPost[], users: ApiUser[]): BlogPost[] {
   });
 }
 
+// Result type that includes cache metadata
+export interface BlogPostsResult {
+  posts: BlogPost[];
+  cachedAt: string;
+}
+
 /**
- * Get all blog posts using Next.js fetch caching
+ * Get all blog posts using Next.js 16 'use cache' directive
  */
 export async function getBlogPosts(): Promise<BlogPost[]> {
+  const result = await getBlogPostsWithMetadata();
+  return result.posts;
+}
+
+/**
+ * Get all blog posts with cache metadata
+ */
+export async function getBlogPostsWithMetadata(): Promise<BlogPostsResult> {
+  'use cache';
+  cacheLife('blog'); // Uses custom profile: 60s stale, 300s revalidate, 3600s expire
+
   try {
     console.log('[API] Fetching blog posts...');
+
+    // Capture the cache time inside the cached function
+    const cachedAt = new Date().toISOString();
 
     // Fetch posts and users in parallel
     const [posts, users] = await Promise.all([
@@ -99,37 +120,54 @@ export async function getBlogPosts(): Promise<BlogPost[]> {
     console.log(`[API] Successfully fetched ${posts.length} posts and ${users.length} users`);
 
     // Transform and return only first 10 posts for better UX
-    return transformApiData(posts.slice(0, 10), users);
+    return {
+      posts: transformApiData(posts.slice(0, 10), users),
+      cachedAt,
+    };
 
   } catch (error) {
     console.error('[API] Error fetching blog posts:', error);
     // Return empty array on error - in production you might want to throw
-    return [];
+    return { posts: [], cachedAt: new Date().toISOString() };
   }
+}
+
+// Result type for single blog post with cache metadata
+export interface BlogPostResult {
+  post: BlogPost | null;
+  cachedAt: string;
 }
 
 /**
  * Get a single blog post by slug using Next.js fetch caching
  */
 export async function getBlogPost(slug: string): Promise<BlogPost | null> {
+  const result = await getBlogPostWithMetadata(slug);
+  return result.post;
+}
+
+/**
+ * Get a single blog post by slug with cache metadata
+ */
+export async function getBlogPostWithMetadata(slug: string): Promise<BlogPostResult> {
   try {
     console.log(`[API] Fetching blog post: ${slug}`);
 
     // Get all posts to find the one with matching slug
-    const allPosts = await getBlogPosts();
+    const { posts: allPosts, cachedAt } = await getBlogPostsWithMetadata();
     const post = allPosts.find(p => p.slug === slug);
 
     if (!post) {
       console.log(`[API] Post not found: ${slug}`);
-      return null;
+      return { post: null, cachedAt };
     }
 
     console.log(`[API] Successfully found blog post: ${post.id}`);
-    return post;
+    return { post, cachedAt };
 
   } catch (error) {
     console.error(`[API] Error fetching blog post ${slug}:`, error);
-    return null;
+    return { post: null, cachedAt: new Date().toISOString() };
   }
 }
 

@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPostsWithTags } from '../../../../lib/blogService';
 
-// Mark route as dynamic to ensure fresh execution
-// (Fetch cache will still work, but route won't be pre-rendered)
-export const dynamic = 'force-dynamic';
-
-// Disable CDN caching for API routes to prevent stale responses after revalidation
-export const revalidate = 0;
+// Next.js 16: No legacy route segment configs needed
+// Tag-based caching is handled via fetch() options in blogService
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();

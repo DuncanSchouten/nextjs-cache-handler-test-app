@@ -1,17 +1,20 @@
 import Link from 'next/link';
+import { cacheLife } from 'next/cache';
 import { getPosts, getUser } from '../../lib/data-source';
 
-// This makes the page statically generated at build time
-// No revalidation - truly static until next build
-export const dynamic = 'force-static';
+// Next.js 16: Use 'use cache' with 'max' profile for SSG-like behavior
+// Replaced legacy: export const dynamic = 'force-static';
 
 export const metadata = {
   title: 'SSG Demo - Static Site Generation',
   description: 'Demonstrates Static Site Generation caching behavior in Next.js.',
 };
 
-// This will be called at build time
+// This will be called at build time and cached indefinitely
 async function getStaticData() {
+  'use cache';
+  cacheLife('max');
+
   console.log('[SSG] Fetching data at build time...');
 
   const buildTime = new Date().toISOString();
