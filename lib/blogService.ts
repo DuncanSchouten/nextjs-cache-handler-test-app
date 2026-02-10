@@ -275,10 +275,17 @@ export async function fetchPostsWithRevalidateAndMetadata(): Promise<CachedPosts
 
 /**
  * Fetch posts with tagged cache strategy
- * This allows on-demand revalidation via revalidateTag('api-posts')
+ *
+ * Next.js 15 approach: Uses fetch() with next.tags option
+ * This tests the cacheHandler (singular) system for on-demand revalidation.
+ *
+ * NOTE: This intentionally does NOT use 'use cache' directive to keep
+ * the Next.js 15 and Next.js 16 caching approaches separate for testing.
+ * - Next.js 15: fetch() with next.tags → uses cacheHandler (singular)
+ * - Next.js 16: 'use cache' + cacheTag() → uses cacheHandlers (plural)
  */
 export async function fetchPostsWithTags(): Promise<ApiPost[]> {
-  console.log('[BlogService] Fetching posts with cache tags...');
+  console.log('[BlogService] Fetching posts with fetch next.tags (Next.js 15 approach)...');
 
   const posts = await getPosts({
     tags: ['api-posts', 'external-data'],
@@ -286,21 +293,34 @@ export async function fetchPostsWithTags(): Promise<ApiPost[]> {
   });
   const limitedPosts = posts.slice(0, 3);
 
-  console.log(`[BlogService] Fetched ${limitedPosts.length} posts with tagged cache`);
+  console.log(`[BlogService] Fetched ${limitedPosts.length} posts with fetch tags`);
   return limitedPosts;
 }
 
 /**
- * Fetch posts with tagged cache strategy (with metadata)
- * Uses 'use cache' with cacheTag() for on-demand revalidation testing
+ * Fetch posts with tagged cache strategy (with metadata) - Next.js 15 compatible
+ *
+ * This tests the COMBINED tag revalidation flow:
+ * - Tags on fetch() via next.tags → tests cacheHandler (singular)
+ * - Tags on function via cacheTag() → tests cacheHandlers (plural)
+ *
+ * When revalidateTag('api-posts') is called, BOTH cache layers are invalidated:
+ * 1. The fetch Data Cache entry (cacheHandler)
+ * 2. The function cache entry (cacheHandlers)
+ *
+ * This represents the recommended pattern for Next.js apps that need
+ * tag-based revalidation to work reliably across all cache layers.
+ *
+ * For pure Next.js 16 approach (cacheTag only), see /api/cache-components/tagged
  */
-export async function fetchPostsWithTagsAndMetadata(): Promise<CachedPostsResult> {
+export async function fetchPostsWithTagsNext15(): Promise<CachedPostsResult> {
   'use cache';
-  cacheLife('blog'); // 5min revalidation from config
-  cacheTag('api-posts'); // Tag for on-demand revalidation
+  cacheLife('blog');
+  cacheTag('api-posts', 'external-data'); // Tags at function level for revalidation
 
-  console.log('[BlogService] Fetching posts with cache tags (use cache)...');
+  console.log('[BlogService] Fetching posts (combined fetch + function tags)...');
 
+  // Tags also at fetch level for comprehensive cache coverage
   const posts = await getPosts({
     tags: ['api-posts', 'external-data'],
     revalidate: 300,
@@ -308,6 +328,33 @@ export async function fetchPostsWithTagsAndMetadata(): Promise<CachedPostsResult
   const limitedPosts = posts.slice(0, 3);
   const cachedAt = new Date().toISOString();
 
-  console.log(`[BlogService] Cached ${limitedPosts.length} posts with tags at ${cachedAt}`);
+  console.log(`[BlogService] Cached ${limitedPosts.length} posts at ${cachedAt}`);
+  return { posts: limitedPosts, cachedAt };
+}
+
+/**
+ * Fetch posts with tagged cache strategy (with metadata)
+ *
+ * Next.js 16 approach: Uses 'use cache' directive with cacheTag()
+ * This tests the cacheHandlers (plural) system for on-demand revalidation.
+ *
+ * NOTE: This intentionally does NOT use fetch's next.tags option to keep
+ * the Next.js 15 and Next.js 16 caching approaches separate for testing.
+ * - Next.js 15: fetch() with next.tags → uses cacheHandler (singular)
+ * - Next.js 16: 'use cache' + cacheTag() → uses cacheHandlers (plural)
+ */
+export async function fetchPostsWithTagsAndMetadata(): Promise<CachedPostsResult> {
+  'use cache';
+  cacheLife('blog'); // 5min revalidation from config
+  cacheTag('api-posts', 'external-data'); // All tags at 'use cache' level
+
+  console.log('[BlogService] Fetching posts with use cache + cacheTag (Next.js 16 approach)...');
+
+  // No tags/revalidate here - the outer 'use cache' block handles caching
+  const posts = await getPosts();
+  const limitedPosts = posts.slice(0, 3);
+  const cachedAt = new Date().toISOString();
+
+  console.log(`[BlogService] Cached ${limitedPosts.length} posts with cacheTag at ${cachedAt}`);
   return { posts: limitedPosts, cachedAt };
 }

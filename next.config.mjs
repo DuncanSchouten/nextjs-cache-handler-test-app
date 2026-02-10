@@ -8,6 +8,15 @@ const nextConfig = {
   // Required for Pantheon deployment
   output: 'standalone',
 
+  // Configure Turbopack to resolve linked packages from parent directory
+  // Required for npm link to work with local @pantheon-systems/nextjs-cache-handler
+  turbopack: {
+    root: path.join(__dirname, '..'),
+  },
+
+  // Transpile the local cache handler package
+  transpilePackages: ['@pantheon-systems/nextjs-cache-handler'],
+
   // Next.js 16 Cache Components configuration
   // Replaces experimental.dynamicIO and legacy route segment configs
   cacheComponents: true,
@@ -34,7 +43,14 @@ const nextConfig = {
   //     hmrRefreshes: true,
   //   },
   // },
+  // Legacy cache handler for ISR, route handlers, fetch cache
   cacheHandler: path.resolve(__dirname, './cache-handler.mjs'),
+
+  // Next.js 16 cache handlers for 'use cache' directive
+  cacheHandlers: {
+    default: path.resolve(__dirname, './use-cache-handler.mjs'),
+  },
+
   cacheMaxMemorySize: 0, // disable default in-memory caching
   headers: async () => {
     return [

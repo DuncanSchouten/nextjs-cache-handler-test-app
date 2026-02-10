@@ -1,27 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchPostsWithTagsAndMetadata } from '../../../../lib/blogService';
+import { fetchPostsWithTagsNext15 } from '../../../../lib/blogService';
 
-// Next.js 16: Cache behavior handled via 'use cache' with cacheTag() in blogService
+// Combined approach: Tests BOTH cache layers with the same tags
+// - Tags on fetch() via next.tags → tests cacheHandler (singular)
+// - Tags on function via cacheTag() → tests cacheHandlers (plural)
+//
+// This ensures revalidateTag('api-posts') invalidates caches at ALL levels.
+// For pure Next.js 16 approach (cacheTag only), see /api/cache-components/tagged
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    console.log('[API] /api/posts/with-tags - Using blogService...');
+    console.log('[API] /api/posts/with-tags - Using combined fetch + cacheTag approach...');
 
-    // Use the metadata version which captures timestamp inside the cached function
-    const { posts, cachedAt } = await fetchPostsWithTagsAndMetadata();
+    // Uses both fetch next.tags AND cacheTag for comprehensive cache invalidation
+    const { posts, cachedAt } = await fetchPostsWithTagsNext15();
     const duration = Date.now() - startTime;
 
     console.log(`[API] /api/posts/with-tags - Completed in ${duration}ms, cached at ${cachedAt}`);
 
     return NextResponse.json({
       data: posts,
-      cache_strategy: 'tags-revalidate-5m',
+      cache_strategy: 'combined-fetch-and-cacheTag',
       duration_ms: duration,
-      fetched_at: cachedAt, // Use timestamp from cached function
+      fetched_at: cachedAt, // Timestamp from when data was fetched
       tags: ['api-posts', 'external-data'],
-      description: 'Cached for 5 minutes with tags for on-demand invalidation'
+      description: 'Combined: fetch(next.tags) + cacheTag() for comprehensive tag invalidation'
     }, {
       headers: {
         // Prevent CDN from caching API responses
