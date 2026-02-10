@@ -10,7 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@pantheon-systems/nextjs-cache-handler": "^0.1.0",
+    "@pantheon-systems/nextjs-cache-handler": "github:pantheon-systems/nextjs-cache-handler#integration/combined-cache-features",
     "next": "^16.1.6",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
