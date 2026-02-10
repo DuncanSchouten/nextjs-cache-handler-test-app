@@ -47,8 +47,11 @@ const nextConfig = {
   cacheHandler: path.resolve(__dirname, './cache-handler.mjs'),
 
   // Next.js 16 cache handlers for 'use cache' directive
+  // - default: Used by 'use cache' (build-time caching)
+  // - remote: Used by 'use cache: remote' (runtime caching with CDN support)
   cacheHandlers: {
     default: path.resolve(__dirname, './use-cache-handler.mjs'),
+    remote: path.resolve(__dirname, './use-cache-handler.mjs'),
   },
 
   cacheMaxMemorySize: 0, // disable default in-memory caching

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withSurrogateKey } from '@pantheon-systems/nextjs-cache-handler';
 import { fetchPostsWithTagsNext15 } from '../../../../lib/blogService';
 
 // Combined approach: Tests BOTH cache layers with the same tags
@@ -7,8 +8,11 @@ import { fetchPostsWithTagsNext15 } from '../../../../lib/blogService';
 //
 // This ensures revalidateTag('api-posts') invalidates caches at ALL levels.
 // For pure Next.js 16 approach (cacheTag only), see /api/cache-components/tagged
+//
+// Uses withSurrogateKey wrapper to automatically set Surrogate-Key headers
+// based on cache tags captured during request processing.
 
-export async function GET(_request: NextRequest) {
+async function handler(_request: NextRequest) {
   const startTime = Date.now();
 
   try {
@@ -51,3 +55,6 @@ export async function GET(_request: NextRequest) {
     );
   }
 }
+
+// Wrap handler with withSurrogateKey to automatically set Surrogate-Key headers
+export const GET = withSurrogateKey(handler, { debug: true });
