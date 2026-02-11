@@ -59,7 +59,9 @@ export function middleware(request: NextRequest, event: NextFetchEvent) {
 }
 
 export const config = {
+  // Only run middleware for background-tasks waitUntil endpoint
+  // All other routes should bypass middleware entirely to avoid interfering with cache headers
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg).*)',
+    '/api/background-tasks/waituntil-trigger',
   ],
 };
