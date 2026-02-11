@@ -3,79 +3,54 @@
 // 2. Pass-through for other routes (Surrogate-Key headers set by withSurrogateKey wrapper)
 //
 // See: /api/posts/with-tags/route.ts for example usage of withSurrogateKey
+//
+// NOTE: Middleware runs in Edge runtime, so we cannot use @google-cloud/storage directly.
+// Instead, we call an internal API endpoint that runs in Node.js runtime.
 
 import { NextResponse } from 'next/server';
 import type { NextRequest, NextFetchEvent } from 'next/server';
-import { Storage } from '@google-cloud/storage';
-
-// Initialize GCS (lazily)
-let storage: Storage | null = null;
-
-function getStorage(): Storage {
-  if (!storage) {
-    storage = new Storage();
-  }
-  return storage;
-}
 
 export function middleware(request: NextRequest, event: NextFetchEvent) {
   // Handle waitUntil() test trigger
   if (request.nextUrl.pathname === '/api/background-tasks/waituntil-trigger') {
     const taskId = request.nextUrl.searchParams.get('taskId');
-    const bucketName = process.env.CACHE_BUCKET;
 
-    if (taskId && bucketName) {
+    if (taskId) {
       console.log(`[Middleware] waitUntil() triggered: taskId=${taskId}`);
 
       // Use event.waitUntil() to keep the request alive for background work
+      // Call internal API endpoint to write to GCS (runs in Node.js runtime)
       event.waitUntil(
         (async () => {
           try {
-            const bucket = getStorage().bucket(bucketName);
-            const file = bucket.file(`background-tasks/${taskId}.json`);
+            // Build the internal API URL
+            const writeUrl = new URL('/api/background-tasks/waituntil-write', request.url);
+            writeUrl.searchParams.set('taskId', taskId);
 
-            const taskData = {
-              taskId,
-              type: 'waitUntil',
-              completed: true,
-              timestamp: Date.now(),
-              source: 'middleware',
-            };
-
-            await file.save(JSON.stringify(taskData, null, 2), {
-              metadata: { contentType: 'application/json' },
+            const response = await fetch(writeUrl.toString(), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                taskId,
+                type: 'waitUntil',
+                completed: true,
+                timestamp: Date.now(),
+                source: 'middleware',
+              }),
             });
+
+            if (!response.ok) {
+              throw new Error(`Write API returned ${response.status}`);
+            }
 
             console.log(`[Middleware] waitUntil() completed: taskId=${taskId}`);
           } catch (error) {
             console.error(`[Middleware] waitUntil() failed: taskId=${taskId}`, error);
-
-            // Attempt to write error state
-            try {
-              const bucket = getStorage().bucket(bucketName);
-              const file = bucket.file(`background-tasks/${taskId}.json`);
-
-              const errorData = {
-                taskId,
-                type: 'waitUntil',
-                completed: false,
-                timestamp: Date.now(),
-                source: 'middleware',
-                error: error instanceof Error ? error.message : String(error),
-              };
-
-              await file.save(JSON.stringify(errorData, null, 2), {
-                metadata: { contentType: 'application/json' },
-              });
-            } catch {
-              // Can't write error state, just log
-              console.error(`[Middleware] Failed to write error state: taskId=${taskId}`);
-            }
           }
         })()
       );
-    } else if (!bucketName) {
-      console.warn('[Middleware] CACHE_BUCKET not set - waitUntil() test skipped');
     }
   }
 
