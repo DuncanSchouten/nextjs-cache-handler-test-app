@@ -1,14 +1,20 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { connection } from 'next/server';
 
-// Force dynamic rendering (SSR) for this page
-export const dynamic = 'force-dynamic';
+// Next.js 16: SSR behavior is default when no 'use cache' is used
+// Dynamic content must be wrapped in Suspense
 
 export const metadata = {
   title: 'About - Dynamic Blog',
   description: 'Learn more about our dynamic blog platform and caching experiments.',
 };
 
-export default async function AboutPage() {
+// Dynamic server info component
+async function ServerInfo() {
+  // Next.js 16: Must call connection() before using new Date() in dynamic pages
+  await connection();
+
   // Get server-side data that changes on each request
   const serverTime = new Date().toISOString();
   const serverInfo = {
@@ -29,6 +35,57 @@ export default async function AboutPage() {
   // Simulate some processing time to demonstrate SSR
   await new Promise(resolve => setTimeout(resolve, 50));
 
+  return (
+    <div className="bg-white dark:bg-zinc-800 rounded-lg p-6 border border-blue-200 dark:border-blue-600">
+      <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
+        Live Server Information
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Rendered At (UTC)</div>
+          <div className="font-mono text-sm text-zinc-900 dark:text-zinc-100">{serverInfo.renderTime}</div>
+        </div>
+        <div>
+          <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Server Timestamp</div>
+          <div className="font-mono text-sm text-zinc-900 dark:text-zinc-100">{serverInfo.timestamp}</div>
+        </div>
+        <div>
+          <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Node.js Version</div>
+          <div className="font-mono text-sm text-zinc-900 dark:text-zinc-100">{serverInfo.nodeVersion}</div>
+        </div>
+        <div>
+          <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Platform</div>
+          <div className="font-mono text-sm text-zinc-900 dark:text-zinc-100">{serverInfo.platform}</div>
+        </div>
+      </div>
+
+      <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md">
+        <p className="text-sm text-yellow-800 dark:text-yellow-200">
+          💡 Refresh this page to see the timestamp update - demonstrating server-side rendering!
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Loading fallback for server info
+function ServerInfoLoading() {
+  return (
+    <div className="bg-white dark:bg-zinc-800 rounded-lg p-6 border border-blue-200 dark:border-blue-600 animate-pulse">
+      <div className="h-6 bg-zinc-200 dark:bg-zinc-700 rounded w-1/3 mb-4"></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i}>
+            <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-1/2 mb-2"></div>
+            <div className="h-5 bg-zinc-200 dark:bg-zinc-700 rounded w-3/4"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function AboutPage() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900">
       <div className="mx-auto max-w-4xl px-6 py-12">
@@ -58,7 +115,7 @@ export default async function AboutPage() {
             </h2>
             <div className="prose prose-zinc dark:prose-invert max-w-none">
               <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed mb-4">
-                This is a dynamic blog platform built with Next.js 15, designed for testing custom cache handling mechanisms.
+                This is a dynamic blog platform built with Next.js 16, designed for testing custom cache handling mechanisms.
                 The application demonstrates different caching strategies across various page types.
               </p>
               <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
@@ -77,7 +134,7 @@ export default async function AboutPage() {
               <div>
                 <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Frontend</h3>
                 <ul className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-                  <li>• Next.js 15+ with App Router</li>
+                  <li>• Next.js 16+ with App Router</li>
                   <li>• TypeScript for type safety</li>
                   <li>• Tailwind CSS for styling</li>
                   <li>• React 19+ with Server Components</li>
@@ -86,10 +143,10 @@ export default async function AboutPage() {
               <div>
                 <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Caching Strategy</h3>
                 <ul className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-                  <li>• ISR for blog pages (5-10 min revalidation)</li>
+                  <li>• Cache Components with &apos;use cache&apos; directive</li>
                   <li>• SSR for about page (this page)</li>
-                  <li>• Static Generation for homepage</li>
-                  <li>• Ready for custom cache implementation</li>
+                  <li>• cacheLife profiles for duration control</li>
+                  <li>• cacheTag for on-demand invalidation</li>
                 </ul>
               </div>
             </div>
@@ -104,35 +161,9 @@ export default async function AboutPage() {
               This page is server-side rendered on every request. The information below changes with each page load:
             </p>
 
-            <div className="bg-white dark:bg-zinc-800 rounded-lg p-6 border border-blue-200 dark:border-blue-600">
-              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-                Live Server Information
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Rendered At (UTC)</div>
-                  <div className="font-mono text-sm text-zinc-900 dark:text-zinc-100">{serverInfo.renderTime}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Server Timestamp</div>
-                  <div className="font-mono text-sm text-zinc-900 dark:text-zinc-100">{serverInfo.timestamp}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Node.js Version</div>
-                  <div className="font-mono text-sm text-zinc-900 dark:text-zinc-100">{serverInfo.nodeVersion}</div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Platform</div>
-                  <div className="font-mono text-sm text-zinc-900 dark:text-zinc-100">{serverInfo.platform}</div>
-                </div>
-              </div>
-
-              <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  💡 Refresh this page to see the timestamp update - demonstrating server-side rendering!
-                </p>
-              </div>
-            </div>
+            <Suspense fallback={<ServerInfoLoading />}>
+              <ServerInfo />
+            </Suspense>
           </section>
 
           {/* Features */}

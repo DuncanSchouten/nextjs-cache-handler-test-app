@@ -1,24 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchPostsWithTags } from '../../../../lib/blogService';
+import { withSurrogateKey } from '@pantheon-systems/nextjs-cache-handler';
+import { fetchPostsWithTagsNext15 } from '../../../../lib/blogService';
 
-export async function GET(request: NextRequest) {
+// Combined approach: Tests BOTH cache layers with the same tags
+// - Tags on fetch() via next.tags → tests cacheHandler (singular)
+// - Tags on function via cacheTag() → tests cacheHandlers (plural)
+//
+// This ensures revalidateTag('api-posts') invalidates caches at ALL levels.
+// For pure Next.js 16 approach (cacheTag only), see /api/cache-components/tagged
+//
+// Uses withSurrogateKey wrapper to automatically set Surrogate-Key headers
+// based on cache tags captured during request processing.
+
+async function handler(_request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    console.log('[API] /api/posts/with-tags - Using blogService...');
+    console.log('[API] /api/posts/with-tags - Using combined fetch + cacheTag approach...');
 
-    const posts = await fetchPostsWithTags();
+    // Uses both fetch next.tags AND cacheTag for comprehensive cache invalidation
+    const { posts, cachedAt } = await fetchPostsWithTagsNext15();
     const duration = Date.now() - startTime;
 
-    console.log(`[API] /api/posts/with-tags - Completed in ${duration}ms`);
+    console.log(`[API] /api/posts/with-tags - Completed in ${duration}ms, cached at ${cachedAt}`);
 
     return NextResponse.json({
       data: posts,
-      cache_strategy: 'tags-revalidate-5m',
+      cache_strategy: 'combined-fetch-and-cacheTag',
       duration_ms: duration,
-      fetched_at: new Date().toISOString(),
-      cache_tags: ['api-posts', 'external-data'],
-      description: 'Cached for 5 minutes with tags for on-demand invalidation'
+      fetched_at: cachedAt, // Timestamp from when data was fetched
+      tags: ['api-posts', 'external-data'],
+      description: 'Combined: fetch(next.tags) + cacheTag() for comprehensive tag invalidation'
+    }, {
+      headers: {
+        // Prevent CDN from caching API responses
+        // This ensures revalidateTag() effects are immediately visible
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
     });
 
   } catch (error) {
@@ -35,3 +55,6 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+// Wrap handler with withSurrogateKey to automatically set Surrogate-Key headers
+export const GET = withSurrogateKey(handler, { debug: true });

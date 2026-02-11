@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 
+// Next.js 16: No 'use cache' means dynamic execution
+// Replaced legacy: export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -16,12 +19,20 @@ export async function POST(request: NextRequest) {
     console.log(`[API] /api/revalidate - Revalidating cache tag: ${tag}`);
 
     // Revalidate the specified cache tag
-    revalidateTag(tag);
+    // Next.js 16: revalidateTag requires a second argument (cache profile)
+    // 'max' uses stale-while-revalidate semantics
+    revalidateTag(tag, 'max');
 
     return NextResponse.json({
       message: `Cache tag '${tag}' has been revalidated`,
       revalidated_at: new Date().toISOString(),
       tag
+    }, {
+      headers: {
+        'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
 
   } catch (error) {
@@ -29,7 +40,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { error: 'Failed to revalidate cache' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
     );
   }
 }
@@ -52,12 +70,19 @@ export async function GET(request: NextRequest) {
   console.log(`[API] /api/revalidate - Revalidating cache tag: ${tag}`);
 
   try {
-    revalidateTag(tag);
+    // Next.js 16: revalidateTag requires a second argument (cache profile)
+    revalidateTag(tag, 'max');
 
     return NextResponse.json({
       message: `Cache tag '${tag}' has been revalidated`,
       revalidated_at: new Date().toISOString(),
       tag
+    }, {
+      headers: {
+        'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
 
   } catch (error) {
@@ -65,7 +90,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       { error: 'Failed to revalidate cache' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
     );
   }
 }

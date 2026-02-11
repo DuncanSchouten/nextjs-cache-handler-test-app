@@ -1,48 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+// Middleware disabled - using withSurrogateKey wrapper on route handlers instead.
+// Kevin's middleware approach doesn't work because middleware runs BEFORE routes,
+// so cache tags aren't captured yet. The wrapper approach sets headers AFTER
+// the route completes and tags have been captured.
+//
+// See: /api/posts/with-tags/route.ts for example usage of withSurrogateKey
+
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Log request information
-  console.log('\n🔥 [MIDDLEWARE] Intercepted request:', pathname);
-  // console.log('📥 [REQUEST HEADERS]');
-
-  // Log all request headers
-  // request.headers.forEach((value, key) => {
-  //   console.log(`   ${key}: ${value}`);
-  // });
-
-  // Continue with the request and get the response
-  const response = NextResponse.next();
-
-  // Log response information
-  // console.log('📤 [RESPONSE HEADERS]');
-
-  // Log all response headers
-  // response.headers.forEach((value, key) => {
-  //   console.log(`   ${key}: ${value}`);
-  // });
-
-  // Add a custom header to track middleware execution
-  response.headers.set('x-middleware-executed', 'true');
-  response.headers.set('x-intercepted-path', pathname);
-  // response.headers.set('x-request-timestamp', new Date().toISOString());
-
-  console.log(`✅ [MIDDLEWARE] Completed for: ${pathname}\n`);
-
-  return response;
+  // Simple pass-through - Surrogate-Key headers are set by withSurrogateKey wrapper
+  return NextResponse.next();
 }
 
-// Configure which paths the middleware should run on
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (you can add more extensions here if needed)
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.gif|.*\\.svg).*)',
   ],
 };
