@@ -12,6 +12,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeTaskToGcs, type BackgroundTaskData } from '@/lib/background-tasks/gcs-writer';
 
+// Force Node.js runtime (required for GCS operations)
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

@@ -17,6 +17,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { writeTaskToGcs, type BackgroundTaskData } from '@/lib/background-tasks/gcs-writer';
 
+// Force Node.js runtime (required for after() and GCS operations)
+export const runtime = 'nodejs';
+// Allow up to 60s for after() callback execution
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const taskId = randomUUID();
   const startTime = Date.now();
