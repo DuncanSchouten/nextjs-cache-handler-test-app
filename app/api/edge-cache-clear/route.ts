@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * API endpoint to test edge cache clearing via the outbound proxy.
  *
  * DELETE /api/edge-cache-clear - Clear entire CDN cache (nuke)
- * DELETE /api/edge-cache-clear?key=<tag> - Clear specific key/tag
+ * DELETE /api/edge-cache-clear?key=<tag> - Clear specific cache key/tag
+ * DELETE /api/edge-cache-clear?path=<url-path> - Clear specific URL path from CDN
  *
  * This is for testing purposes to validate the outbound proxy integration.
  */
@@ -24,6 +25,7 @@ export async function DELETE(request: NextRequest) {
 
   const url = new URL(request.url);
   const key = url.searchParams.get('key');
+  const path = url.searchParams.get('path');
 
   const startTime = Date.now();
 
@@ -35,6 +37,11 @@ export async function DELETE(request: NextRequest) {
       // Clear specific key/tag
       targetUrl = `http://${endpoint}/rest/v0alpha1/cache/keys/${encodeURIComponent(key)}`;
       operation = `clear-key:${key}`;
+    } else if (path) {
+      // Clear specific URL path from CDN
+      const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+      targetUrl = `http://${endpoint}/rest/v0alpha1/cache/paths/${encodeURIComponent(normalizedPath)}`;
+      operation = `clear-path:${path}`;
     } else {
       // Nuke entire cache
       targetUrl = `http://${endpoint}/rest/v0alpha1/cache`;
@@ -107,7 +114,12 @@ export async function GET() {
     usage: {
       'DELETE /api/edge-cache-clear': 'Clear entire CDN cache (nuke)',
       'DELETE /api/edge-cache-clear?key=<tag>': 'Clear specific cache key/tag',
+      'DELETE /api/edge-cache-clear?path=<url-path>': 'Clear specific URL path from CDN',
     },
-    example: 'curl -X DELETE https://your-site/api/edge-cache-clear',
+    examples: {
+      nuke: 'curl -X DELETE https://your-site/api/edge-cache-clear',
+      key: 'curl -X DELETE https://your-site/api/edge-cache-clear?key=api-posts',
+      path: 'curl -X DELETE https://your-site/api/edge-cache-clear?path=/blogs',
+    },
   });
 }
