@@ -48,7 +48,10 @@ async function handler(_request: NextRequest) {
       description: 'Runtime caching with use cache: remote for CDN Surrogate-Key support'
     }, {
       headers: {
-        'Cache-Control': 'private, no-cache, no-store, must-revalidate, max-age=0',
+        // CDN-friendly cache headers for edge caching with Surrogate-Key invalidation
+        // s-maxage: CDN caches for 1 hour
+        // stale-while-revalidate: serve stale while revalidating in background
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=60',
       }
     });
 
