@@ -6,16 +6,16 @@
 //
 // Architecture:
 // - Tags set via cacheTag() are stored with cache entries
-// - On cache HIT, tags are propagated to withSurrogateKey() wrapper
-// - withSurrogateKey() sets Surrogate-Key response header for CDN integration
+// - On cache HIT, tags are propagated via CacheTagContext (Symbol.for pattern)
+// - withSurrogateKey() reads tags from CacheTagContext and sets Surrogate-Key header
 //
-// Note: Uses globalThis fallback because Next.js cache mechanism runs
-// outside of AsyncLocalStorage context created by withSurrogateKey().
+// Note: The handler now uses Symbol.for('@nextjs-cache-handler/tag-context') pattern
+// internally to propagate tags. This allows cross-context access without direct
+// module imports, similar to Next.js's @next/request-context pattern.
 
-import { createUseCacheHandler, RequestContext } from '@pantheon-systems/nextjs-cache-handler';
+import { createUseCacheHandler } from '@pantheon-systems/nextjs-cache-handler';
 
-// Global tag store for cross-context tag propagation
-// Fallback for when AsyncLocalStorage doesn't propagate through Next.js cache mechanism
+// Initialize global tag store as fallback (used when Symbol.for pattern doesn't propagate)
 globalThis.__pantheonSurrogateKeyTags = globalThis.__pantheonSurrogateKeyTags || [];
 
 // Get the handler class based on environment
@@ -26,27 +26,10 @@ const UseCacheHandlerClass = createUseCacheHandler({
 // Next.js expects an object with handler methods, so we instantiate the class
 const handler = new UseCacheHandlerClass();
 
-// Wrap get() to propagate cache tags for Surrogate-Key headers
-const wrappedGet = async (cacheKey, softTags) => {
-  const result = await handler.get(cacheKey, softTags);
-
-  // On cache HIT with tags, propagate to response wrapper
-  if (result && result.tags && result.tags.length > 0) {
-    if (RequestContext.isActive()) {
-      // Ideal path: use AsyncLocalStorage context
-      RequestContext.addTags(result.tags);
-    } else {
-      // Fallback: use global store for cross-context propagation
-      globalThis.__pantheonSurrogateKeyTags.push(...result.tags);
-    }
-  }
-
-  return result;
-};
-
-// Export the handler instance with wrapped methods
+// Export the handler instance directly
+// Tag propagation is now handled internally by the handler via Symbol.for pattern
 export default {
-  get: wrappedGet,
+  get: handler.get.bind(handler),
   set: handler.set.bind(handler),
   refreshTags: handler.refreshTags.bind(handler),
   getExpiration: handler.getExpiration.bind(handler),
