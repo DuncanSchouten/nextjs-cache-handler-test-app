@@ -12,9 +12,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeTaskToGcs, type BackgroundTaskData } from '@/lib/background-tasks/gcs-writer';
 
-// Force Node.js runtime (required for GCS operations)
-export const runtime = 'nodejs';
-export const maxDuration = 60;
+// Note: Cannot use runtime/maxDuration exports with cacheComponents enabled
+// Routes default to Node.js runtime, which is correct for GCS operations
 
 export async function POST(request: NextRequest) {
   try {

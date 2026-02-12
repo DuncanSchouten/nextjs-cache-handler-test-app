@@ -17,10 +17,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { writeTaskToGcs, type BackgroundTaskData } from '@/lib/background-tasks/gcs-writer';
 
-// Force Node.js runtime (required for after() and GCS operations)
-export const runtime = 'nodejs';
-// Allow up to 60s for after() callback execution
-export const maxDuration = 60;
+// Note: Cannot use `export const runtime = 'nodejs'` with cacheComponents enabled
+// Routes default to Node.js runtime, which is correct for after() and GCS operations
+// maxDuration configuration would require route config, incompatible with cacheComponents
 
 export async function POST(request: NextRequest) {
   const taskId = randomUUID();
