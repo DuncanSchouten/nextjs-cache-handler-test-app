@@ -33,11 +33,11 @@ async function handler(_request: NextRequest) {
       description: 'Combined: fetch(next.tags) + cacheTag() for comprehensive tag invalidation'
     }, {
       headers: {
-        // Prevent CDN from caching API responses
-        // This ensures revalidateTag() effects are immediately visible
-        'Cache-Control': 'private, no-cache, no-store, must-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-        'Expires': '0',
+        // CDN-friendly cache headers for edge caching with Surrogate-Key invalidation
+        // s-maxage: CDN caches for 1 hour
+        // stale-while-revalidate: serve stale while revalidating in background
+        // Surrogate-Key header (set by withSurrogateKey) enables targeted purge via revalidateTag()
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=60',
       }
     });
 
