@@ -39,9 +39,20 @@ export async function DELETE(request: NextRequest) {
       operation = `clear-key:${key}`;
     } else if (path) {
       // Clear specific URL path from CDN
+      // Strip leading slash and encode each segment individually so
+      // slashes remain as path separators in the proxy URL.
+      // Root path "/" falls through to nuke-all since the proxy has
+      // no single-segment representation for it.
       const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
-      targetUrl = `http://${endpoint}/rest/v0alpha1/cache/paths/${encodeURIComponent(normalizedPath)}`;
-      operation = `clear-path:${path}`;
+      if (!normalizedPath) {
+        // Root path — use full cache clear
+        targetUrl = `http://${endpoint}/rest/v0alpha1/cache`;
+        operation = `clear-path:/`;
+      } else {
+        const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/');
+        targetUrl = `http://${endpoint}/rest/v0alpha1/cache/paths/${encodedPath}`;
+        operation = `clear-path:${path}`;
+      }
     } else {
       // Nuke entire cache
       targetUrl = `http://${endpoint}/rest/v0alpha1/cache`;
