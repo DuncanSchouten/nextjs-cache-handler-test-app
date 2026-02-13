@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 /**
  * CDN cache validation endpoint for E2E tests.
  *
- * GET /cache-test
+ * GET /cdnprobe
  *
  * Returns a JSON response with a unique generation timestamp and nonce.
  * Every request that reaches the origin produces a new timestamp.
@@ -17,7 +17,7 @@ import { randomUUID } from 'crypto';
  * Test pattern:
  *   1. Request → CDN caches response with timestamp A
  *   2. Wait for Age > 0
- *   3. Purge CDN path /cache-test
+ *   3. Purge CDN path /cdnprobe
  *   4. Request again → origin generates timestamp B
  *   5. Assert timestamp B !== timestamp A → purge worked
  */
