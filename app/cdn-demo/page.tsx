@@ -88,21 +88,40 @@ export default function CdnDemoPage() {
   }, []);
 
   const fetchProbe = useCallback(async () => {
+    const PURGE_PROPAGATION_MS = 3000;
     const WARMUP_MAX_ATTEMPTS = 6;
     const WARMUP_POLL_INTERVAL_MS = 5000;
 
     setIsProbing(true);
     setProbeError(null);
-    addLog('FETCH', 'Warming CDN — fetching /api/cdnprobe and waiting for cache...');
 
     try {
-      // Initial fetch seeds the CDN cache
+      // Step 1: Nuke CDN for a clean slate (matches Playwright test pattern)
+      addLog('FETCH', 'Nuking CDN edge cache for clean start...');
+      try {
+        const nukeRes = await fetch('/api/edge-cache-clear', { method: 'DELETE' });
+        const nukeData = await nukeRes.json();
+        if (nukeData.success) {
+          addLog('FETCH', 'CDN nuke succeeded', `${nukeData.duration_ms}ms`);
+        } else {
+          addLog('FETCH', 'CDN nuke failed (continuing anyway)', nukeData.error || `status ${nukeData.status}`);
+        }
+      } catch {
+        addLog('FETCH', 'CDN nuke unavailable (continuing anyway — may be local dev)');
+      }
+
+      // Step 2: Wait for purge propagation
+      addLog('FETCH', `Waiting ${PURGE_PROPAGATION_MS / 1000}s for purge propagation...`);
+      await new Promise(resolve => setTimeout(resolve, PURGE_PROPAGATION_MS));
+
+      // Step 3: Seed the CDN cache with a fresh request
+      addLog('FETCH', 'Seeding CDN cache with fresh /api/cdnprobe request...');
       let data = await fetchCdnProbe();
       setProbeData(data);
 
+      // Step 4: Poll until CDN Age > 0 (proves it's cached at the edge)
       let ageVal = data.headers?.age ? parseInt(data.headers.age, 10) : null;
 
-      // Poll until CDN Age > 0 (proves it's cached at the edge)
       for (let attempt = 1; attempt <= WARMUP_MAX_ATTEMPTS && (ageVal === null || ageVal === 0); attempt++) {
         addLog('FETCH', `Waiting for CDN to cache (attempt ${attempt}/${WARMUP_MAX_ATTEMPTS})...`);
         await new Promise(resolve => setTimeout(resolve, WARMUP_POLL_INTERVAL_MS));
@@ -116,7 +135,7 @@ export default function CdnDemoPage() {
       if (ageVal !== null && ageVal > 0) {
         addLog(
           'FETCH',
-          'CDN cache confirmed',
+          'CDN cache confirmed — baseline locked',
           `Age: ${ageVal}s | Surrogate-Key: ${surrogateKey ?? 'n/a'} | Nonce: ${data.body?.nonce?.slice(0, 8)}...`
         );
       } else {
