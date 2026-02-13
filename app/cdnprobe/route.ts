@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withSurrogateKey } from '@pantheon-systems/nextjs-cache-handler';
 import { cacheTag } from 'next/cache';
 import { randomUUID } from 'crypto';
 
@@ -10,16 +9,17 @@ import { randomUUID } from 'crypto';
  *
  * Returns a JSON response with a unique generation timestamp and nonce.
  * Uses 'use cache' with cacheTag('cdnprobe') so the cache handler tracks
- * this entry and can clear it from the CDN via revalidatePath/revalidateTag.
+ * this entry and can clear it via revalidatePath/revalidateTag.
  *
- * The withSurrogateKey wrapper ensures the CDN (Fastly) receives a
- * Surrogate-Key header ('cdnprobe'), enabling tag-based CDN purging.
+ * Sets the Surrogate-Key header explicitly to 'cdnprobe' so the CDN
+ * (Fastly) can purge this response via key-based invalidation when
+ * onRevalidateComplete fires.
  *
  * Test pattern:
- *   1. Request → cache handler stores entry, CDN caches via Surrogate-Key
+ *   1. Request → cache handler stores entry, CDN caches with Surrogate-Key
  *   2. Wait for CDN Age > 0
  *   3. revalidatePath('/cdnprobe') → cache handler invalidates entry
- *      → onRevalidateComplete → CDN purge via key-based endpoint
+ *      → onRevalidateComplete → CDN purge via DELETE /cache/keys/cdnprobe
  *   4. Request again → origin generates new timestamp
  *   5. Assert new timestamp !== old timestamp → purge worked
  */
@@ -37,14 +37,13 @@ async function generateProbeData() {
   };
 }
 
-async function handler(_request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const data = await generateProbeData();
 
   return NextResponse.json(data, {
     headers: {
       'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=0',
+      'Surrogate-Key': 'cdnprobe',
     },
   });
 }
-
-export const GET = withSurrogateKey(handler, { debug: true });
