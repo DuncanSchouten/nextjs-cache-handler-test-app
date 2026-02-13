@@ -2,7 +2,7 @@
   "name": "nextjs-cache-handler-test-app",
   "version": "1.0.0",
   "private": true,
-  "description": "Test application for @pantheon-systems/nextjs-cache-handler E2E validation",
+  "description": "Test application for @pantheon-systems/nextjs-cache-handler E2E validation (v2)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
