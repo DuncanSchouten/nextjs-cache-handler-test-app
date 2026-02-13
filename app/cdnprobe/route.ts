@@ -1,4 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { withSurrogateKey } from '@pantheon-systems/nextjs-cache-handler';
+import { cacheTag } from 'next/cache';
 import { randomUUID } from 'crypto';
 
 /**
@@ -7,33 +9,42 @@ import { randomUUID } from 'crypto';
  * GET /cdnprobe
  *
  * Returns a JSON response with a unique generation timestamp and nonce.
- * Every request that reaches the origin produces a new timestamp.
- * The CDN (Fastly) caches the response via s-maxage.
+ * Uses 'use cache' with cacheTag('cdnprobe') so the cache handler tracks
+ * this entry and can clear it from the CDN via revalidatePath/revalidateTag.
  *
- * Single-segment path is required because the outbound proxy's
- * DELETE /rest/v0alpha1/cache/paths/{path} endpoint returns 404
- * for multi-segment paths like /api/cache-timestamp.
+ * The withSurrogateKey wrapper ensures the CDN (Fastly) receives a
+ * Surrogate-Key header ('cdnprobe'), enabling tag-based CDN purging.
  *
  * Test pattern:
- *   1. Request → CDN caches response with timestamp A
- *   2. Wait for Age > 0
- *   3. Purge CDN path /cdnprobe
- *   4. Request again → origin generates timestamp B
- *   5. Assert timestamp B !== timestamp A → purge worked
+ *   1. Request → cache handler stores entry, CDN caches via Surrogate-Key
+ *   2. Wait for CDN Age > 0
+ *   3. revalidatePath('/cdnprobe') → cache handler invalidates entry
+ *      → onRevalidateComplete → CDN purge via key-based endpoint
+ *   4. Request again → origin generates new timestamp
+ *   5. Assert new timestamp !== old timestamp → purge worked
  */
-export async function GET() {
+
+async function generateProbeData() {
+  'use cache';
+  cacheTag('cdnprobe');
+
   const now = new Date();
 
-  return NextResponse.json(
-    {
-      generated_at: now.toISOString(),
-      nonce: randomUUID(),
-      purpose: 'CDN cache validation — each origin request produces a unique response',
-    },
-    {
-      headers: {
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=0',
-      },
-    }
-  );
+  return {
+    generated_at: now.toISOString(),
+    nonce: randomUUID(),
+    purpose: 'CDN cache validation — each origin request produces a unique response',
+  };
 }
+
+async function handler(_request: NextRequest) {
+  const data = await generateProbeData();
+
+  return NextResponse.json(data, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=0',
+    },
+  });
+}
+
+export const GET = withSurrogateKey(handler, { debug: true });
