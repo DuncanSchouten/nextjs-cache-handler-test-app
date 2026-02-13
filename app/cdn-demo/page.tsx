@@ -9,19 +9,11 @@ interface CdnProbeBody {
   purpose: string;
 }
 
-interface CdnProxyResponse {
+interface ProbeResult {
   body: CdnProbeBody;
   headers: Record<string, string | null>;
-  status: number;
   fetched_at: string;
-  target_url: string;
   error?: string;
-}
-
-interface ProbeSnapshot {
-  body: CdnProbeBody;
-  headers: Record<string, string | null>;
-  fetched_at: string;
 }
 
 interface LogEntry {
@@ -34,16 +26,53 @@ interface LogEntry {
 
 let logIdCounter = 0;
 
+/** Headers to capture from the CDN response */
+const HEADERS_TO_CAPTURE = [
+  'age',
+  'x-cache',
+  'x-cache-hits',
+  'surrogate-key',
+  'x-surrogate-key-debug',
+  'cache-control',
+  'x-served-by',
+  'x-timer',
+  'via',
+  'content-type',
+  'date',
+];
+
+/**
+ * Fetch /api/cdnprobe directly from the browser (through the CDN).
+ * This is more reliable than the server-side proxy because the browser
+ * request naturally traverses the CDN edge, so Age/X-Cache headers
+ * reflect the actual CDN state the user would see.
+ */
+async function fetchCdnProbe(): Promise<ProbeResult> {
+  const res = await fetch('/api/cdnprobe', { cache: 'no-store' });
+  const body: CdnProbeBody = await res.json();
+
+  const headers: Record<string, string | null> = {};
+  for (const name of HEADERS_TO_CAPTURE) {
+    headers[name] = res.headers.get(name);
+  }
+
+  return {
+    body,
+    headers,
+    fetched_at: new Date().toISOString(),
+  };
+}
+
 export default function CdnDemoPage() {
-  const [probeData, setProbeData] = useState<CdnProxyResponse | null>(null);
+  const [probeData, setProbeData] = useState<ProbeResult | null>(null);
   const [isProbing, setIsProbing] = useState(false);
   const [probeError, setProbeError] = useState<string | null>(null);
 
   const [revalidateResult, setRevalidateResult] = useState<string | null>(null);
   const [isRevalidating, setIsRevalidating] = useState(false);
 
-  const [beforeSnapshot, setBeforeSnapshot] = useState<ProbeSnapshot | null>(null);
-  const [afterSnapshot, setAfterSnapshot] = useState<ProbeSnapshot | null>(null);
+  const [beforeSnapshot, setBeforeSnapshot] = useState<ProbeResult | null>(null);
+  const [afterSnapshot, setAfterSnapshot] = useState<ProbeResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
 
   const [log, setLog] = useState<LogEntry[]>([]);
@@ -61,34 +90,24 @@ export default function CdnDemoPage() {
   const fetchProbe = useCallback(async () => {
     setIsProbing(true);
     setProbeError(null);
-    addLog('FETCH', 'Fetching /api/cdnprobe via CDN proxy...');
+    addLog('FETCH', 'Fetching /api/cdnprobe from CDN...');
 
     try {
-      const res = await fetch('/api/cdn-proxy?path=/api/cdnprobe');
-      const data: CdnProxyResponse = await res.json();
+      const data = await fetchCdnProbe();
 
-      if (data.error) {
-        setProbeError(data.error);
-        addLog('FETCH', `Error: ${data.error}`);
-      } else {
-        setProbeData(data);
-        const age = data.headers?.age;
-        const surrogateKey = data.headers?.['surrogate-key'];
-        addLog(
-          'FETCH',
-          `Received probe response`,
-          `Age: ${age ?? 'n/a'} | Surrogate-Key: ${surrogateKey ?? 'n/a'} | Nonce: ${data.body?.nonce?.slice(0, 8)}...`
-        );
+      setProbeData(data);
+      const age = data.headers?.age;
+      const surrogateKey = data.headers?.['surrogate-key'] || data.headers?.['x-surrogate-key-debug'];
+      addLog(
+        'FETCH',
+        'Received probe response',
+        `Age: ${age ?? 'n/a'} | Surrogate-Key: ${surrogateKey ?? 'n/a'} | Nonce: ${data.body?.nonce?.slice(0, 8)}...`
+      );
 
-        // Save as "before" snapshot for verification
-        setBeforeSnapshot({
-          body: data.body,
-          headers: data.headers,
-          fetched_at: data.fetched_at,
-        });
-        // Clear any previous "after" snapshot
-        setAfterSnapshot(null);
-      }
+      // Save as "before" snapshot for verification
+      setBeforeSnapshot(data);
+      // Clear any previous "after" snapshot
+      setAfterSnapshot(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setProbeError(msg);
@@ -142,22 +161,12 @@ export default function CdnDemoPage() {
 
     try {
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        const res = await fetch('/api/cdn-proxy?path=/api/cdnprobe');
-        const data: CdnProxyResponse = await res.json();
-
-        if (data.error) {
-          addLog('VERIFY', `Error on attempt ${attempt}: ${data.error}`);
-          break;
-        }
+        const data = await fetchCdnProbe();
 
         const changed = beforeSnapshot && data.body.generated_at !== beforeSnapshot.body.generated_at;
 
         if (changed) {
-          setAfterSnapshot({
-            body: data.body,
-            headers: data.headers,
-            fetched_at: data.fetched_at,
-          });
+          setAfterSnapshot(data);
           setProbeData(data);
           addLog(
             'VERIFY',
@@ -168,12 +177,7 @@ export default function CdnDemoPage() {
         }
 
         if (attempt === MAX_ATTEMPTS) {
-          // Final attempt still matched — show what we got
-          setAfterSnapshot({
-            body: data.body,
-            headers: data.headers,
-            fetched_at: data.fetched_at,
-          });
+          setAfterSnapshot(data);
           setProbeData(data);
           addLog(
             'VERIFY',
@@ -197,6 +201,7 @@ export default function CdnDemoPage() {
   const age = probeData?.headers?.age;
   const ageNum = age ? parseInt(age, 10) : null;
   const isCached = ageNum !== null && ageNum > 0;
+  const surrogateKey = probeData?.headers?.['surrogate-key'] || probeData?.headers?.['x-surrogate-key-debug'];
 
   const logTypeColor = (type: LogEntry['type']) => {
     switch (type) {
@@ -272,7 +277,7 @@ export default function CdnDemoPage() {
               </div>
             )}
 
-            {probeData && !probeData.error && (
+            {probeData && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <span className={`px-3 py-1 text-sm font-medium rounded-full ${
@@ -305,7 +310,7 @@ export default function CdnDemoPage() {
                   <div>
                     <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Surrogate-Key</div>
                     <div className="font-mono text-sm text-zinc-900 dark:text-zinc-100">
-                      {probeData.headers?.['surrogate-key'] ?? <span className="text-zinc-400 italic">none</span>}
+                      {surrogateKey ?? <span className="text-zinc-400 italic">none</span>}
                     </div>
                   </div>
                   <div>
