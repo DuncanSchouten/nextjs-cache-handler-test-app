@@ -134,30 +134,57 @@ export default function CdnDemoPage() {
   };
 
   const handleVerify = async () => {
+    const MAX_ATTEMPTS = 6;
+    const POLL_INTERVAL_MS = 3000;
+
     setIsVerifying(true);
-    addLog('VERIFY', 'Fetching fresh probe to verify CDN purge...');
+    addLog('VERIFY', 'Polling CDN for fresh content...');
 
     try {
-      const res = await fetch('/api/cdn-proxy?path=/api/cdnprobe');
-      const data: CdnProxyResponse = await res.json();
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const res = await fetch('/api/cdn-proxy?path=/api/cdnprobe');
+        const data: CdnProxyResponse = await res.json();
 
-      if (data.error) {
-        addLog('VERIFY', `Error: ${data.error}`);
-      } else {
-        setAfterSnapshot({
-          body: data.body,
-          headers: data.headers,
-          fetched_at: data.fetched_at,
-        });
-        // Also update the main probe display
-        setProbeData(data);
+        if (data.error) {
+          addLog('VERIFY', `Error on attempt ${attempt}: ${data.error}`);
+          break;
+        }
 
         const changed = beforeSnapshot && data.body.generated_at !== beforeSnapshot.body.generated_at;
-        addLog(
-          'VERIFY',
-          changed ? 'CDN purge confirmed — new content served' : 'Timestamps match — CDN may still be cached',
-          `Before: ${beforeSnapshot?.body.generated_at ?? 'n/a'} | After: ${data.body.generated_at}`
-        );
+
+        if (changed) {
+          setAfterSnapshot({
+            body: data.body,
+            headers: data.headers,
+            fetched_at: data.fetched_at,
+          });
+          setProbeData(data);
+          addLog(
+            'VERIFY',
+            `CDN purge confirmed on attempt ${attempt} — new content served`,
+            `Before: ${beforeSnapshot?.body.generated_at} | After: ${data.body.generated_at}`
+          );
+          break;
+        }
+
+        if (attempt === MAX_ATTEMPTS) {
+          // Final attempt still matched — show what we got
+          setAfterSnapshot({
+            body: data.body,
+            headers: data.headers,
+            fetched_at: data.fetched_at,
+          });
+          setProbeData(data);
+          addLog(
+            'VERIFY',
+            `Timestamps still match after ${MAX_ATTEMPTS} attempts — CDN may not have propagated yet`,
+            `Before: ${beforeSnapshot?.body.generated_at} | After: ${data.body.generated_at}`
+          );
+          break;
+        }
+
+        addLog('VERIFY', `Attempt ${attempt}/${MAX_ATTEMPTS}: still cached, retrying in ${POLL_INTERVAL_MS / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -189,8 +216,6 @@ export default function CdnDemoPage() {
 
   const timestampsChanged = beforeSnapshot && afterSnapshot &&
     beforeSnapshot.body.generated_at !== afterSnapshot.body.generated_at;
-  const timestampsMatch = beforeSnapshot && afterSnapshot &&
-    beforeSnapshot.body.generated_at === afterSnapshot.body.generated_at;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900">
