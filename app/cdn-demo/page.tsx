@@ -88,25 +88,47 @@ export default function CdnDemoPage() {
   }, []);
 
   const fetchProbe = useCallback(async () => {
+    const WARMUP_MAX_ATTEMPTS = 6;
+    const WARMUP_POLL_INTERVAL_MS = 5000;
+
     setIsProbing(true);
     setProbeError(null);
-    addLog('FETCH', 'Fetching /api/cdnprobe from CDN...');
+    addLog('FETCH', 'Warming CDN — fetching /api/cdnprobe and waiting for cache...');
 
     try {
-      const data = await fetchCdnProbe();
-
+      // Initial fetch seeds the CDN cache
+      let data = await fetchCdnProbe();
       setProbeData(data);
-      const age = data.headers?.age;
-      const surrogateKey = data.headers?.['surrogate-key'] || data.headers?.['x-surrogate-key-debug'];
-      addLog(
-        'FETCH',
-        'Received probe response',
-        `Age: ${age ?? 'n/a'} | Surrogate-Key: ${surrogateKey ?? 'n/a'} | Nonce: ${data.body?.nonce?.slice(0, 8)}...`
-      );
 
-      // Save as "before" snapshot for verification
+      let ageVal = data.headers?.age ? parseInt(data.headers.age, 10) : null;
+
+      // Poll until CDN Age > 0 (proves it's cached at the edge)
+      for (let attempt = 1; attempt <= WARMUP_MAX_ATTEMPTS && (ageVal === null || ageVal === 0); attempt++) {
+        addLog('FETCH', `Waiting for CDN to cache (attempt ${attempt}/${WARMUP_MAX_ATTEMPTS})...`);
+        await new Promise(resolve => setTimeout(resolve, WARMUP_POLL_INTERVAL_MS));
+        data = await fetchCdnProbe();
+        setProbeData(data);
+        ageVal = data.headers?.age ? parseInt(data.headers.age, 10) : null;
+      }
+
+      const surrogateKey = data.headers?.['surrogate-key'] || data.headers?.['x-surrogate-key-debug'];
+
+      if (ageVal !== null && ageVal > 0) {
+        addLog(
+          'FETCH',
+          'CDN cache confirmed',
+          `Age: ${ageVal}s | Surrogate-Key: ${surrogateKey ?? 'n/a'} | Nonce: ${data.body?.nonce?.slice(0, 8)}...`
+        );
+      } else {
+        addLog(
+          'FETCH',
+          'Probe fetched (CDN Age not detected — may be local dev)',
+          `Surrogate-Key: ${surrogateKey ?? 'n/a'} | Nonce: ${data.body?.nonce?.slice(0, 8)}...`
+        );
+      }
+
+      // Snapshot only after CDN has confirmed caching
       setBeforeSnapshot(data);
-      // Clear any previous "after" snapshot
       setAfterSnapshot(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -154,7 +176,7 @@ export default function CdnDemoPage() {
 
   const handleVerify = async () => {
     const MAX_ATTEMPTS = 6;
-    const POLL_INTERVAL_MS = 3000;
+    const POLL_INTERVAL_MS = 5000;
 
     setIsVerifying(true);
     addLog('VERIFY', 'Polling CDN for fresh content...');
